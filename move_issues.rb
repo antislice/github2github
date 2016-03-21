@@ -13,18 +13,23 @@ def maybe_add_labels_to_repo(issue_labels, repo, existing_labels)
   labels_to_add.map(&:name)
 end
 
-def maybe_add_milestone_to_repo(milestone, repo, existing_milestones)
-  return if milestone.nil? || existing_milestones.include?(milestone.title)
-  puts "Adding milestone '#{milestone.title}'"
-  new_milestone = @client.create_milestone(repo, milestone.title, description: milestone.description, due_on: milestone.due_on)
-  new_milestone
+def maybe_add_milestone_to_repo(source_milestone, repo, existing_milestones)
+  return if source_milestone.nil?
+  milestone = existing_milestones.find { |m| m.title.eql? source_milestone.title }
+  if milestone.nil?
+    puts "Adding milestone '#{source_milestone.title}'"
+    milestone = @client.create_milestone(repo, source_milestone.title,
+                                         description: source_milestone.description,
+                                         due_on: source_milestone.due_on)
+  end
+  milestone
 end
 
 def maybe_assign_issue(new_issue, repo, assignee)
   # => check if assignee "exists" in this repo
   # => if they do, assign to them
   # => if not, add comment about attempting to assign them
-  # @client.update_issue(target_repo, new_issue.id, assignee: issue.assignee.login)
+  # @client.update_issue(target_repo, new_issue.number, assignee: issue.assignee.login)
 end
 
 @client = Octokit::Client.new(netrc: true)
@@ -40,7 +45,7 @@ target_repo = ARGV.shift
 label = ARGV.shift
 
 existing_labels = Octokit.labels(target_repo).map(&:name)
-existing_milestones = Octokit.milestones(target_repo).map(&:title)
+existing_milestones = Octokit.milestones(target_repo)
 
 source_issues = Octokit.issues(source_repo, labels: label, state: 'open')
 puts 'Issues to move'
@@ -52,12 +57,12 @@ source_issues.each do |issue|
   # union w/ other existing labels
   existing_labels |= maybe_add_labels_to_repo(issue.labels, target_repo, existing_labels)
   # append to existing milestones, but get back the whole thing because we need the id later
-  new_milestone = maybe_add_milestone_to_repo(issue.milestone, target_repo, existing_milestones)
-  existing_milestones << new_milestone.title unless new_milestone.nil?
+  milestone = maybe_add_milestone_to_repo(issue.milestone, target_repo, existing_milestones)
+  existing_milestones << milestone.title unless milestone.nil?
 
   new_issue = @client.create_issue(target_repo, issue.title, new_issue_body,
-                                   label: issue.labels.map(&:name).join(','))
-  @client.update_issue(target_repo, new_issue.id, milestone: new_milestone.id) unless new_milestone.nil?
+                                   labels: issue.labels.map(&:name).join(','))
+  @client.update_issue(target_repo, new_issue.number, new_issue.title, milestone: milestone.number) unless milestone.nil?
   # assign issue
   maybe_assign_issue(new_issue, target_repo, issue.assignee.login) unless issue.assignee.nil?
 end
