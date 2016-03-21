@@ -25,11 +25,12 @@ def maybe_add_milestone_to_repo(source_milestone, repo, existing_milestones)
   milestone
 end
 
-def maybe_assign_issue(new_issue, repo, assignee)
-  # => check if assignee "exists" in this repo
-  # => if they do, assign to them
-  # => if not, add comment about attempting to assign them
-  # @client.update_issue(target_repo, new_issue.number, assignee: issue.assignee.login)
+def maybe_assign_issue(new_issue_number, repo, assignee)
+  if Octokit.check_assignee(repo, assignee)
+    @client.update_issue(target_repo, new_issue_number, assignee: assignee)
+  else
+    @client.add_comment(target_repo, new_issue_number, "Attempted to assign issue to @#{assignee} but they're not assignable in this repo")
+  end
 end
 
 @client = Octokit::Client.new(netrc: true)
@@ -52,7 +53,7 @@ puts 'Issues to move'
 source_issues.each do |issue|
   puts issue.title
 
-  new_issue_body = issue.body << "\n\nThis issue originally created by [#{issue.user.login}](#{issue.user.url}) as #{issue.url}."
+  new_issue_body = issue.body << "\n\nThis issue originally created by @#{issue.user.login} as #{issue.url}."
 
   # union w/ other existing labels
   existing_labels |= maybe_add_labels_to_repo(issue.labels, target_repo, existing_labels)
@@ -63,8 +64,7 @@ source_issues.each do |issue|
   new_issue = @client.create_issue(target_repo, issue.title, new_issue_body,
                                    labels: issue.labels.map(&:name).join(','))
   @client.update_issue(target_repo, new_issue.number, new_issue.title, milestone: milestone.number) unless milestone.nil?
-  # assign issue
-  maybe_assign_issue(new_issue, target_repo, issue.assignee.login) unless issue.assignee.nil?
+  maybe_assign_issue(new_issue.number, target_repo, issue.assignee.login) unless issue.assignee.nil?
 end
 
 # for each issue:
