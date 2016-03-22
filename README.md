@@ -2,22 +2,29 @@
 Move github issues to another github repo, but with ruby. And by label.
 
 ## Setup/Usage
-This relies on the octokit gem, so either install it with `gem install octokit` or run `bundle install`. 
+Gems relied on: Octokit (github API), netrc (.netrc files), highline (CLI input). You can install them independently or with `bundle install`.
 
-Right now, credentials are handled with a .netrc file, which needs to be installed with `gem install netrc` or the previously run `bundle install`. The default .netrc file is at `~/.netrc` and looks like this:
+### Authentication
+**You need to have push access to both repositories or the script will fail with 404s.**
+
+You can [authenticate with netrc](https://github.com/octokit/octokit.rb#using-a-netrc-file) with either username/password or an OAuth token. Or the script will ask you for your username/password (only stored in memory).
+
+#### Netrc
+The default .netrc file is at `~/.netrc` and looks like this:
 ````
 machine api.github.com
   login defunkt
   password c0d3b4ssssss!
 ````
 
+### Usage
 The script expects all the issues you want to move to have the same label. Run with:
 ````
 > ruby move_issues.rb source-repo target-repo label-on-issues-to-move
 ````
-**You need to have push access to both repositories or the script will fail with 404s. Also, if your label has spaces remember to enclose it in quotes: `"my space label"`.**
+*If your label has spaces remember to enclose it in quotes: `"my space label"`.*
 
-### What it does
+#### What it does
 * Adds each issue labeled with `search-label` to the target repo, and adds a line at the bottom of the issue description about who originally filed it in the source repo
 * If an issue has a label or milestone that doesn't exist in the target repo, that label or milestone is created in the target repo (*except* for `search-label`)
 * All comments are moved over (in order) with a note about who originally made the comment

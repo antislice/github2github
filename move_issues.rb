@@ -1,6 +1,8 @@
 # encoding:UTF-8
 # !/usr/bin/env ruby
 require 'OctoKit'
+require 'highline/import'
+require 'netrc'
 
 def maybe_add_labels_to_repo(issue_labels, repo, existing_labels)
   return if issue_labels.nil?
@@ -32,7 +34,19 @@ def maybe_assign_issue(new_issue_number, repo, assignee)
   end
 end
 
-@client = Octokit::Client.new(netrc: true)
+def get_input(prompt = 'Enter >', show = true)
+  ask(prompt) { |q| q.echo = show }
+end
+
+if Netrc.read['api.github.com'].nil?
+  user = get_input('Enter Username > ')
+  password = get_input('Enter Password > ', '*')
+  @client = Octokit::Client.new \
+    login: user,
+    password: password
+else
+  @client = Octokit::Client.new(netrc: true)
+end
 @client.user.login
 
 if ARGV.empty?
@@ -60,7 +74,7 @@ source_issues.each do |issue|
   new_issue_body = '' << issue.body << "\n\nThis issue originally created by @#{issue.user.login} as #{source_repo}##{issue.number}."
 
   # remove the search label from the labels to move
-  issue.labels.select!{ |l| !l.name.eql? label }
+  issue.labels.select! { |l| !l.name.eql? label }
   existing_labels |= maybe_add_labels_to_repo(issue.labels, target_repo, existing_labels)
   # append to existing milestones, but get back the whole thing because we need the id later
   milestone = maybe_add_milestone_to_repo(issue.milestone, target_repo, existing_milestones)
@@ -84,13 +98,3 @@ source_issues.each do |issue|
 end
 
 puts "All done! #{source_issues.count} issues moved from #{source_repo} to #{target_repo}."
-# for each issue:
-# add issue to target_repo
-# DONE => add line at the bottom of the issue description about who originally filed it in what repo
-# DONE => add labels
-# DONE => => if any of the labels don't exist, add them
-# DONE => same for milestones
-# DONE => add comments (do I need to edit them to indicate who originally made them? probably.)
-# DONE => close first issue
-# DONE remove "search label" from target repo
-# README (remember netrc)
