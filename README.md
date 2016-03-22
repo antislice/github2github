@@ -22,6 +22,7 @@ The script expects all the issues you want to move to have the same label. Run w
 * If an issue has a label or milestone that doesn't exist in the target repo, that label or milestone is created in the target repo (*except* for `search-label`)
 * All comments are moved over (in order) with a note about who originally made the comment
 * The original issue is closed in the source repo with a comment indicating it was moved to the target repo
+
 See [this issue](https://github.com/codeforamerica/nola-2016-fellows/issues/61) for an example issue that was moved.
 
 ## Contributing
