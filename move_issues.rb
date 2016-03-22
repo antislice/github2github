@@ -28,7 +28,7 @@ def maybe_assign_issue(new_issue_number, repo, assignee)
   if Octokit.check_assignee(repo, assignee)
     @client.update_issue(repo, new_issue_number, assignee: assignee)
   else
-    @client.add_comment(repo, new_issue_number, "Attempted to assign issue to #{assignee} but they're not assignable in this repo")
+    @client.add_comment(repo, new_issue_number, "Attempted to assign issue to @#{assignee} but they're not assignable in this repo")
   end
 end
 
@@ -57,9 +57,10 @@ end
 source_issues.each do |issue|
   puts "Moving issue #{issue.title} (##{issue.number})"
 
-  new_issue_body = '' << issue.body << "\n\nThis issue originally created by #{issue.user.login} as #{source_repo}##{issue.number}."
+  new_issue_body = '' << issue.body << "\n\nThis issue originally created by @#{issue.user.login} as #{source_repo}##{issue.number}."
 
-  # union w/ other existing labels
+  # remove the search label from the labels to move
+  issue.labels.select!{ |l| !l.name.eql? label }
   existing_labels |= maybe_add_labels_to_repo(issue.labels, target_repo, existing_labels)
   # append to existing milestones, but get back the whole thing because we need the id later
   milestone = maybe_add_milestone_to_repo(issue.milestone, target_repo, existing_milestones)
@@ -73,16 +74,14 @@ source_issues.each do |issue|
   if issue.comments > 0
     comments = Octokit.issue_comments(source_repo, issue.number)
     comments.each do |source_comment|
-      boilerplate = "ORIGINAL COMMENT BY #{source_comment.user.login} ([here](#{source_comment.html_url}))\n\n"
+      boilerplate = "ORIGINAL COMMENT BY @#{source_comment.user.login} ([here](#{source_comment.html_url}))\n\n"
       @client.add_comment(target_repo, new_issue.number, boilerplate << source_comment.body)
     end
   end
 
   @client.add_comment(source_repo, issue.number, "This issue was moved to #{target_repo}##{new_issue.number}")
-  # @client.close_issue(source_repo, issue.number)
+  @client.close_issue(source_repo, issue.number)
 end
-
-@client.delete_label!(target_repo, label)
 
 puts "All done! #{source_issues.count} issues moved from #{source_repo} to #{target_repo}."
 # for each issue:
