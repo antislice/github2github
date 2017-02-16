@@ -3,6 +3,19 @@
 require 'OctoKit'
 require 'highline/import'
 require 'netrc'
+require 'optparse'
+
+options = {}
+
+ARGV << '-h' if ARGV.empty?
+
+OptionParser.new do |opts|
+  opts.banner = 'Usage: ruby move_issues.rb source-repo target-repo [label-on-issues-to-move]'
+
+  opts.on('--leave-open', 'Leave the source-repo issues open') do |lo|
+    options[:leave_open] = lo
+  end
+end.parse!
 
 def maybe_add_labels_to_repo(issue_labels, repo, existing_labels)
   return if issue_labels.nil?
@@ -27,7 +40,7 @@ def maybe_add_milestone_to_repo(source_milestone, repo, existing_milestones)
 end
 
 def maybe_assign_issue(new_issue_number, repo, assignee)
-  if Octokit.check_assignee(repo, assignee)
+  if @client.check_assignee(repo, assignee)
     @client.update_issue(repo, new_issue_number, assignee: assignee)
   else
     @client.add_comment(repo, new_issue_number, "Attempted to assign issue to @#{assignee} but they're not assignable in this repo")
@@ -47,21 +60,16 @@ if Netrc.read['api.github.com'].nil?
 else
   @client = Octokit::Client.new(netrc: true)
 end
-@client.user.login
-
-if ARGV.empty?
-  puts 'Usage: ruby move_issues.rb source-repo target-repo label-on-issues-to-move'
-  exit 0
-end
+@client.login
 
 source_repo = ARGV.shift
 target_repo = ARGV.shift
 label = ARGV.shift
 
-existing_labels = Octokit.labels(target_repo).map(&:name)
-existing_milestones = Octokit.milestones(target_repo)
+existing_labels = @client.labels(target_repo).map(&:name)
+existing_milestones = @client.milestones(target_repo)
 
-source_issues = Octokit.issues(source_repo, labels: label, state: 'open')
+source_issues = @client.issues(source_repo, labels: label, state: 'open')
 
 if source_issues.empty?
   puts "Nothing found in #{source_repo} for '#{label}'"
@@ -86,7 +94,7 @@ source_issues.each do |issue|
   maybe_assign_issue(new_issue.number, target_repo, issue.assignee.login) unless issue.assignee.nil?
 
   if issue.comments > 0
-    comments = Octokit.issue_comments(source_repo, issue.number)
+    comments = @client.issue_comments(source_repo, issue.number)
     comments.each do |source_comment|
       boilerplate = "ORIGINAL COMMENT BY @#{source_comment.user.login} ([here](#{source_comment.html_url}))\n\n"
       @client.add_comment(target_repo, new_issue.number, boilerplate << source_comment.body)
@@ -94,7 +102,7 @@ source_issues.each do |issue|
   end
 
   @client.add_comment(source_repo, issue.number, "This issue was moved to #{target_repo}##{new_issue.number}")
-  @client.close_issue(source_repo, issue.number)
+  @client.close_issue(source_repo, issue.number) unless options[:leave_open]
 end
 
 puts "All done! #{source_issues.count} issues moved from #{source_repo} to #{target_repo}."

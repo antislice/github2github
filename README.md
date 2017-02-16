@@ -17,6 +17,9 @@ machine api.github.com
   password c0d3b4ssssss!
 ````
 
+#### Private Repos
+Private repos require a [personal access token](https://github.com/blog/1509-personal-api-tokens) with the `repos` permission. Use it in place of the password in the `.netrc` file. (This isn't a bad idea to do anyways, otherwise your password is hanging out in plaintext.)
+
 ### Usage
 The script expects all the issues you want to move to have the same label. Run with:
 ````
@@ -24,11 +27,15 @@ The script expects all the issues you want to move to have the same label. Run w
 ````
 *If your label has spaces remember to enclose it in quotes: `"my space label"`.*
 
+Finer points:
+* If you want to move all the open issues, just leave off the label. The API correctly interprets it.
+* As per the API docs, you should also be able to specify multiple labels if they're passed as a single comma-seperated string. (not tested)
+
 #### What it does
 * Adds each issue labeled with `search-label` to the target repo, and adds a line at the bottom of the issue description about who originally filed it in the source repo
 * If an issue has a label or milestone that doesn't exist in the target repo, that label or milestone is created in the target repo (*except* for `search-label`)
 * All comments are moved over (in order) with a note about who originally made the comment
-* The original issue is closed in the source repo with a comment indicating it was moved to the target repo
+* The original issue is closed in the source repo with a comment indicating it was moved to the target repo (if you don't want it closed, use the `--leave-open` flag)
 
 See [this issue](https://github.com/codeforamerica/nola-2016-fellows/issues/61) for an example issue that was moved.
 
